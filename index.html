@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smile Score</title>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        body {
+            background: linear-gradient(45deg, #4FB6D0, #2A5298);
+            min-height: 100vh;
+        }
+        #video {
+            transform: scaleX(-1);
+        }
+        .score-display {
+            font-size: 3rem;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4">
+    <div class="glass rounded-xl p-6 max-w-md w-full">
+        <h1 class="text-2xl text-white text-center mb-4">Smile Score</h1>
+        
+        <div class="relative w-full">
+            <video id="video" class="w-full rounded-lg" autoplay muted></video>
+            <canvas id="overlay" class="absolute top-0 left-0 w-full h-full"></canvas>
+        </div>
+
+        <div class="mt-4 text-center">
+            <div class="score-display" id="score">0%</div>
+            <p class="text-white mt-2" id="message">Getting ready...</p>
+        </div>
+    </div>
+
+    <script>
+        async function init() {
+            try {
+                // Load face-api models
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models'),
+                    faceapi.nets.faceExpressionNet.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models')
+                ]);
+
+                const video = document.getElementById('video');
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+
+                video.addEventListener('play', () => {
+                    const canvas = document.getElementById('overlay');
+                    const displaySize = { width: video.clientWidth, height: video.clientHeight };
+                    faceapi.matchDimensions(canvas, displaySize);
+
+                    setInterval(async () => {
+                        const detections = await faceapi
+                            .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                            .withFaceExpressions();
+
+                        if (detections.length > 0) {
+                            const smileScore = Math.round(detections[0].expressions.happy * 100);
+                            document.getElementById('score').textContent = `${smileScore}%`;
+                            
+                            // Update message based on smile score
+                            const message = document.getElementById('message');
+                            if (smileScore < 30) {
+                                message.textContent = "Come on, give us a smile! 😊";
+                            } else if (smileScore < 70) {
+                                message.textContent = "Getting better! 😃";
+                            } else {
+                                message.textContent = "Perfect smile! 😁";
+                            }
+
+                            // Draw face detection results
+                            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                            faceapi.draw.drawFaceExpressions(canvas, resizedDetections);
+                        }
+                    }, 100);
+                });
+            } catch (err) {
+                console.error(err);
+                document.getElementById('message').textContent = "Camera access denied or error occurred";
+            }
+        }
+
+        // Start the application when the page loads
+        window.addEventListener('load', init);
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
